@@ -1,0 +1,9 @@
+[general]
+import = [
+  "~/.config/alacritty/one_dark.toml"
+]
+[font]
+normal = { family = "DejaVuSansM Nerd Font Mono", style = "Regular"}
+size = 16
+[window]
+option_as_alt = "OnlyLeft"
