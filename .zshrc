@@ -6,7 +6,7 @@ source $ZSH/oh-my-zsh.sh
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
-alias ls="eza --color=always --long --git --icons=always --all --no-time --no-user --no-permissions --no-filesize"
+alias ls="eza --color=always --long --git --icons=always --all --no-time --no-user --no-permissions --no-filesize --group-directories-first"
 
 export NVM_SYMLINK_CURRENT=true
 export BAT_THEME="OneHalfDark"
