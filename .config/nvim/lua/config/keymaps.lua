@@ -17,3 +17,5 @@ map("n", "<leader>t?", require("telescope.builtin").oldfiles, { desc = "[?] Find
 map("n", "<leader>tsd", telescope.diagnostics, { desc = "[S]earch [D]iagnostics" })
 map("n", "<C-e>", LazyVim.pick("buffers"), { desc = "Opened buffers" })
 map("n", "<C-F>", LazyVim.pick("live_grep"), { desc = "Search in files" })
+
+map("n", "<C-s>", ":wa<cr>", { noremap = true, desc = "Save all" })

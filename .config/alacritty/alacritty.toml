@@ -4,6 +4,6 @@ import = [
 ]
 [font]
 normal = { family = "DejaVuSansM Nerd Font Mono", style = "Regular"}
-size = 16
+size = 13
 [window]
 option_as_alt = "OnlyLeft"
