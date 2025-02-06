@@ -1,0 +1,14 @@
+(defcfg
+  macos-dev-names-include (
+    "GK630 Gaming Keyboard"
+  )
+  process-unmapped-keys yes
+)
+
+(defsrc
+  lalt lmet
+)
+
+(deflayer base
+  lmet lalt
+)

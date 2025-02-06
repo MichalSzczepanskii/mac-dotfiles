@@ -21,3 +21,7 @@ eval "$(zoxide init --cmd cd zsh)"
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
 [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+unalias brew 2>/dev/null
+brewser=$(stat -f "%Su" $(which brew))
+alias brew='sudo -Hu '$brewser' brew'
