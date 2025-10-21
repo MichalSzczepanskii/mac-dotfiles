@@ -18,3 +18,10 @@ lspconfig.angularls.setup({
   filetypes = { "typescript", "html" },
   root_dir = lspconfig.util.root_pattern("angular.json", "package.json"),
 })
+
+lspconfig.eslint.setup({
+  settings = {
+    workingDirectories = { mode = "auto" },
+  },
+  filetypes = { "javascript", "javascriptreact", "typescript", "typescriptreact", "vue", "svelte", "astro", "html" },
+})

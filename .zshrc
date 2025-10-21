@@ -25,3 +25,13 @@ export SDKMAN_DIR="$HOME/.sdkman"
 unalias brew 2>/dev/null
 brewser=$(stat -f "%Su" $(which brew))
 alias brew='sudo -Hu '$brewser' brew'
+
+source ~/.zsh_functions/nx_angular_commands.sh
+
+# Added by LM Studio CLI (lms)
+export PATH="$PATH:/Users/work/.lmstudio/bin"
+# End of LM Studio CLI section
+
+
+# Created by `pipx` on 2025-09-26 08:25:55
+export PATH="$PATH:/Users/work/.local/bin"

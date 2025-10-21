@@ -1,0 +1,41 @@
+{
+  "Angular - Router": {
+    "prefix": "a-router",
+    "body": ["private readonly router = inject(Router);"],
+    "description": "Inject angular router"
+  },
+  "Angular - Route": {
+    "prefix": "a-route",
+    "body": ["private readonly route = inject(ActivatedRoute);"],
+    "description": "Inject angular route"
+  },
+  "Angular - Store": {
+    "prefix": "a-store",
+    "body": ["private readonly store = inject(Store);"],
+    "description": "Inject ngrx store"
+  },
+  "Material import": {
+    "prefix": "mat-imp",
+    "body": ["import { Mat${1}Module } from \"@angular/material/${1}\""],
+    "description": "Material Import"
+  },
+  "NGRX - Effect - Request": {
+    "prefix": "ngrx-effect-request",
+    "body": [
+      "createEffect(() =>",
+      "\tthis.actions$.pipe(",
+      "\t\tofType(${1}.${2}),",
+      "\t\tswitchMap(({ payload }) =>",
+      "\t\t\tthis.service.${3}.pipe(",
+      "\t\t\t\tmapResponse({",
+      "\t\t\t\t\tnext: (res) => ${1}.success({ res }),",
+      "\t\t\t\t\terror: (error: HttpErrorResponse) => ${1}.fail({ error }),",
+      "\t\t\t\t}),",
+      "\t\t\t),",
+      "\t\t),",
+      "\t),",
+      ");"
+    ],
+    "description": "Ngrx effect for request"
+  }
+}

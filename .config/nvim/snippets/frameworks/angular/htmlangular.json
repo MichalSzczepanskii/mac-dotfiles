@@ -1,0 +1,94 @@
+{
+  "class": {
+    "prefix": "a-class",
+    "body": ["[class]=\"${1:expression}\""],
+    "description": "Angular [class] binding"
+  },
+  "style": {
+    "prefix": "a-style",
+    "body": ["[style.${1:property}]=\"${2:expression}\""],
+    "description": "Angular [style] binding"
+  },
+  "ngClass": {
+    "prefix": "a-ngClass",
+    "body": ["[ngClass]=\"{${1:cssClass}: ${2:expression}}\""],
+    "description": "Angular ngClass"
+  },
+  "ngFormArrayName": {
+    "prefix": "a-formArrayName",
+    "body": ["formArrayName=\"${1:control}\""],
+    "description": "Angular formArrayName"
+  },
+  "ngFormControlName": {
+    "prefix": "a-formControlName",
+    "body": ["formControlName=\"${1:control}\""],
+    "description": "Angular formControlName"
+  },
+  "ngFormGroup": {
+    "prefix": "a-formGroup",
+    "body": ["[formGroup]=\"${1:form}\""],
+    "description": "Angular formGroup"
+  },
+  "ngFormGroupName": {
+    "prefix": "a-formGroupName",
+    "body": ["[formGroupName]=\"${1:name}\""],
+    "description": "Angular formGroupName"
+  },
+  "ngModel": {
+    "prefix": "a-ngModel",
+    "body": ["[(ngModel)]=\"${1:binding}\""],
+    "description": "Angular ngModel"
+  },
+  "ngRouterLink": {
+    "prefix": "a-routerLink",
+    "body": [
+      "[routerLink]=\"['/${1:routePath}']\" routerLinkActive=\"${2:router-link-active}\" $0"
+    ],
+    "description": "Angular routerLink"
+  },
+  "ngRouterLinkWithParameter": {
+    "prefix": "a-routerLink-param",
+    "body": [
+      "[routerLink]=\"['${1:routePath}', ${2:routeParameterValue}]\"",
+      "routerLinkActive=\"${3:router-link-active}\"$0"
+    ],
+    "description": "Angular routerLink with a route parameter"
+  },
+  "ngStyle": {
+    "prefix": "a-ngStyle",
+    "body": ["[ngStyle]=\"{${1:style}: ${2:expression}}\""],
+    "description": "Angular ngStyle"
+  },
+  "pre w/ json": {
+    "prefix": "a-prej",
+    "body": ["<pre>{{${1:model} | json}}</pre>$0"],
+    "description": "Angular pre debug | json"
+  },
+  "pre w/ async json": {
+    "prefix": "a-preja",
+    "body": ["<pre>{{${1:model} | async | json}}</pre>$0"],
+    "description": "Angular pre debug | async | json"
+  },
+  "ng-container": {
+    "prefix": "a-ng-container",
+    "body": ["<ng-container $0></ng-container>"],
+    "description": "Angular ng-container"
+  },
+  "ng-template": {
+    "prefix": "a-ng-template",
+    "body": [
+      "<ng-template [ngTemplateOutlet]=\"${1:outlet}\" [ngOutletContext]=\"${2:context}\"></ng-template>"
+    ],
+    "description": "Angular ng-template"
+  },
+  "ng-content": {
+    "prefix": "a-ng-content",
+    "body": ["<ng-content select=\"${0:selector}\"></ng-content>"],
+    "description": "Angular ng-content"
+  },
+  "ngIf": {
+    "prefix": "if",
+    "body": ["@if(${1:expression}) {", "\t$2", "}"],
+    "description": "Angular if"
+  }
+}
