@@ -1,14 +1,14 @@
 return {
-  -- {
-  --   "bluz71/vim-nightfly-colors",
-  --   opts = {
-  --     style = "dark",
-  --   },
-  -- },
+  {
+    "folke/tokyonight.nvim",
+    opts = {
+      style = "dark",
+    },
+  },
   {
     "LazyVim/LazyVim",
     opts = {
-      colorscheme = "tokyonight",
+      colorscheme = "tokyonight-night",
     },
   },
 }
