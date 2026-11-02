@@ -78,7 +78,7 @@ sock() { echo "$FAKE_TMP/nvim.tester/x$1/nvim.$1.0"; }
   nvim_in 300 301 302
   run "$SCRIPT" switched new 'old one'
   [ "$status" -eq 0 ]
-  grep -qx "tmux set-option -t =old one @lsp_left $NOW" "$CALLS"
+  grep -qx "tmux set-option -t =old one: @lsp_left $NOW" "$CALLS"
   grep -q "^nvim --server $(sock 302) --remote-expr " "$CALLS"
   not_called "$(sock 102)"
 }
@@ -86,13 +86,19 @@ sock() { echo "$FAKE_TMP/nvim.tester/x$1/nvim.$1.0"; }
 @test "switched: clears the leave time of the session returned to" {
   run "$SCRIPT" switched 'new one' old
   [ "$status" -eq 0 ]
-  grep -qx "tmux set-option -u -t =new one @lsp_left" "$CALLS"
+  grep -qx "tmux set-option -u -t =new one: @lsp_left" "$CALLS"
 }
 
 @test "switched: first attach (no old session) records no leave time" {
   run "$SCRIPT" switched new
   [ "$status" -eq 0 ]
   not_called '@lsp_left [0-9]'
+}
+
+@test "left: records the leave time of the session" {
+  run "$SCRIPT" left 'old one'
+  [ "$status" -eq 0 ]
+  grep -qx "tmux set-option -t =old one: @lsp_left $NOW" "$CALLS"
 }
 
 # hook <event> [format=value]...: run that tmux.conf hook's run-shell command the way tmux does
@@ -116,6 +122,11 @@ hook() {
 @test "tmux.conf: first switch after attach (empty last session) still names the new session" {
   hook client-session-changed session_name='new one' client_last_session=
   [ "$(cat "$CALLS")" = '[switched][new one]' ]
+}
+
+@test "tmux.conf: detach passes the session detached from to lsp-idle left" {
+  hook client-detached session_name='old one'
+  [ "$(cat "$CALLS")" = '[left][old one]' ]
 }
 
 @test "launchd agent runs lsp-idle stop every 5 minutes" {

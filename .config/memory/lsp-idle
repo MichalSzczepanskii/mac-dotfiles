@@ -1,7 +1,8 @@
 #!/bin/bash
 # Idle LSP stop (#83).
 #   lsp-idle stop        launchd, every 5 min: stop LSP in nvims of tmux sessions left over 30 min ago.
-#   lsp-idle switched NEW [OLD] tmux client-session-changed hook: record leaving OLD, bring LSP back in NEW.
+#   lsp-idle switched NEW [OLD] tmux client-session-changed hook (also fires on attach): record leaving OLD, bring LSP back in NEW.
+#   lsp-idle left SESSION       tmux client-detached hook: record leaving SESSION.
 # Talks to nvim only over its RPC socket (--remote-expr), never send-keys.
 PATH=$PATH:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin # launchd gives a minimal PATH
 
@@ -52,14 +53,17 @@ stop() {
     done
 }
 
+left() { tmux set-option -t "=$1:" @lsp_left "$(date +%s)"; }
+
 switched() {
-  [ -n "$2" ] && tmux set-option -t "=$2" @lsp_left "$(date +%s)"
-  tmux set-option -u -t "=$1" @lsp_left # in use again: an old leave time must not count
+  [ -n "$2" ] && left "$2"
+  tmux set-option -u -t "=$1:" @lsp_left # in use again: an old leave time must not count
   tree $(panes | awk -F '\t' -v s="$1" '$4 == s { print $3 }') | remote "$resume_lua"
 }
 
 case $1 in
   stop) stop ;;
   switched) switched "$2" "$3" ;;
-  *) echo "usage: lsp-idle stop | switched NEW [OLD]" >&2; exit 2 ;;
+  left) left "$2" ;;
+  *) echo "usage: lsp-idle stop | switched NEW [OLD] | left SESSION" >&2; exit 2 ;;
 esac
