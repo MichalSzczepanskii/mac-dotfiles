@@ -152,8 +152,9 @@ hook() {
 }
 
 @test "launchd agent runs lsp-idle stop every 5 minutes" {
-  plist="$BATS_TEST_DIRNAME/../../.config/memory/lsp-idle.plist"
+  plist="$BATS_TEST_DIRNAME/../../.config/memory/local.memory.lsp-idle.plist"
   plutil -lint "$plist"
+  [ "$(plutil -extract Label raw "$plist")" = local.memory.lsp-idle ]
   [ "$(plutil -extract StartInterval raw "$plist")" = 300 ]
   [ "$(plutil -extract ProgramArguments.2 raw "$plist")" = '"$HOME/.config/memory/lsp-idle" stop' ]
 }

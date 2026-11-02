@@ -4,7 +4,7 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>lsp-idle</string>
+  <string>local.memory.lsp-idle</string>
   <key>ProgramArguments</key>
   <array>
     <string>/bin/sh</string>

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Idle LSP stop (#83).
 #   lsp-idle stop        launchd, every 5 min: stop LSP in nvims of idle tmux sessions (detached: left 30+ min ago;
 #                        attached: no client input for 30+ min), except the session running ng serve.
@@ -9,8 +9,8 @@ PATH=$PATH:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin # laun
 
 sock_dir="$(getconf DARWIN_USER_TEMP_DIR)nvim.${USER:-$(id -un)}" # launchd sets no TMPDIR
 
-# tree <pid>...: "pid command" of those processes and all their descendants
-tree() {
+# proc_tree <pid>...: "pid command" of those processes and all their descendants
+proc_tree() {
   ps -A -o pid=,ppid=,command= | awk -v roots="$*" '
     BEGIN { n = split(roots, r, " "); for (i = 1; i <= n; i++) keep[r[i]] = 1 }
     { pid[NR] = $1; ppid[NR] = $2; line[NR] = $0; sub(/^ *[0-9]+ +[0-9]+ +/, "", line[NR]) }
@@ -47,10 +47,10 @@ panes() { tmux list-panes -a -F '#{session_attached}	#{?@lsp_left,#{@lsp_left},#
 stop() {
   { tmux list-clients -F '#{client_activity}	#{client_session}'; panes; } |
     awk -F '\t' -v now="$(date +%s)" 'NF == 2 { if ($1 > input[$2]) input[$2] = $1; next }
-      now - ($1 > 0 ? input[$4] : $2) > 1800 { panes[$4] = panes[$4] " " $3 }
-      END { for (n in panes) print panes[n] }' |
-    while read -r panes; do
-      t=$(tree $panes)
+      now - ($1 > 0 ? input[$4] : $2) > 1800 { pids[$4] = pids[$4] " " $3 }
+      END { for (n in pids) print pids[n] }' |
+    while read -r pane_pids; do
+      t=$(proc_tree $pane_pids)
       echo "$t" | grep -Eq '(^| |/)ng serve' && continue # the main project: keeps LSP however long the user is away
       echo "$t" | remote "$stop_lua"
     done
@@ -61,7 +61,7 @@ left() { tmux set-option -t "=$1:" @lsp_left "$(date +%s)"; }
 switched() {
   [ -n "$2" ] && left "$2"
   tmux set-option -u -t "=$1:" @lsp_left # in use again: an old leave time must not count
-  tree $(panes | awk -F '\t' -v s="$1" '$4 == s { print $3 }') | remote "$resume_lua"
+  proc_tree $(panes | awk -F '\t' -v s="$1" '$4 == s { print $3 }') | remote "$resume_lua"
 }
 
 case $1 in
