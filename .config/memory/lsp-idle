@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Idle LSP stop (#83).
+#   lsp-idle stop        launchd, every 5 min: stop LSP in nvims of idle tmux sessions (detached: left 30+ min ago;
+#                        attached: no client input for 30+ min), except the session running ng serve.
+#   lsp-idle switched NEW [OLD] tmux client-session-changed hook (also fires on attach): record leaving OLD, bring LSP back in NEW.
+#   lsp-idle left SESSION       tmux client-detached hook: record leaving SESSION.
+# Talks to nvim only over its RPC socket (--remote-expr), never send-keys.
+PATH=$PATH:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin # launchd gives a minimal PATH
+
+sock_dir="$(getconf DARWIN_USER_TEMP_DIR)nvim.${USER:-$(id -un)}" # launchd sets no TMPDIR
+
+# proc_tree <pid>...: "pid command" of those processes and all their descendants
+proc_tree() {
+  ps -A -o pid=,ppid=,command= | awk -v roots="$*" '
+    BEGIN { n = split(roots, r, " "); for (i = 1; i <= n; i++) keep[r[i]] = 1 }
+    { pid[NR] = $1; ppid[NR] = $2; line[NR] = $0; sub(/^ *[0-9]+ +[0-9]+ +/, "", line[NR]) }
+    END {
+      do { grew = 0; for (i = 1; i <= NR; i++) if (!keep[pid[i]] && keep[ppid[i]]) { keep[pid[i]] = 1; grew = 1 } } while (grew)
+      for (i = 1; i <= NR; i++) if (keep[pid[i]]) print pid[i], line[i]
+    }'
+}
+
+# socks: RPC sockets of the nvims in a tree read from stdin
+socks() {
+  awk '$2 ~ /(^|\/)nvim$/ { print $1 }' | while read -r p; do
+    for s in "$sock_dir"/*/nvim."$p".0; do [ -e "$s" ] && echo "$s"; done
+  done
+}
+
+# Lua run inside nvim; double quotes only, since each sits in a Vim single-quoted string.
+# Resume: re-set each file buffer's filetype, which fires FileType and so LSP attach; only where stop ran.
+resume_lua='pcall(vim.api.nvim_del_augroup_by_name, "lsp_idle") if vim.g.lsp_idle_stopped ~= 1 then return "skip" end vim.g.lsp_idle_stopped = nil for _, b in ipairs(vim.api.nvim_list_bufs()) do if vim.api.nvim_buf_is_loaded(b) and vim.bo[b].buftype == "" and vim.bo[b].filetype ~= "" then vim.api.nvim_buf_call(b, function() vim.bo.filetype = vim.bo.filetype end) end end return "resumed"'
+# Stop: skip a nvim in insert mode, pending input or a completion popup (next run retries); mark it for resume.
+# Also resume on the first use of that nvim: an attached session stopped after a night's sleep gets no tmux switch event.
+stop_lua='local m = vim.api.nvim_get_mode() if m.mode ~= "n" or m.blocking or vim.fn.pumvisible() == 1 then return "busy" end local c = vim.lsp.get_clients() if #c == 0 then return "none" end vim.g.lsp_idle_stopped = 1 vim.lsp.stop_client(c) vim.api.nvim_create_autocmd({"FocusGained", "CursorMoved", "CursorMovedI", "InsertEnter"}, {group = vim.api.nvim_create_augroup("lsp_idle", {}), callback = function() '"$resume_lua"' end}) return "stopped"'
+
+# remote <lua>: run it in every nvim whose tree is on stdin
+remote() {
+  socks | while read -r s; do
+    nvim --server "$s" --remote-expr "luaeval('(function() $1 end)()')" </dev/null >/dev/null 2>&1
+  done
+}
+
+# panes: tmux panes as "attached<TAB>left<TAB>pane pid<TAB>session"; never-left sessions (fresh tmux or restore) count from their last activity
+panes() { tmux list-panes -a -F '#{session_attached}	#{?@lsp_left,#{@lsp_left},#{session_activity}}	#{pane_pid}	#{session_name}'; }
+
+stop() {
+  { tmux list-clients -F '#{client_activity}	#{client_session}'; panes; } |
+    awk -F '\t' -v now="$(date +%s)" 'NF == 2 { if ($1 > input[$2]) input[$2] = $1; next }
+      now - ($1 > 0 ? input[$4] : $2) > 1800 { pids[$4] = pids[$4] " " $3 }
+      END { for (n in pids) print pids[n] }' |
+    while read -r pane_pids; do
+      t=$(proc_tree $pane_pids)
+      echo "$t" | grep -Eq '(^| |/)ng serve' && continue # the main project: keeps LSP however long the user is away
+      echo "$t" | remote "$stop_lua"
+    done
+}
+
+left() { tmux set-option -t "=$1:" @lsp_left "$(date +%s)"; }
+
+switched() {
+  [ -n "$2" ] && left "$2"
+  tmux set-option -u -t "=$1:" @lsp_left # in use again: an old leave time must not count
+  proc_tree $(panes | awk -F '\t' -v s="$1" '$4 == s { print $3 }') | remote "$resume_lua"
+}
+
+case $1 in
+  stop) stop ;;
+  switched) switched "$2" "$3" ;;
+  left) left "$2" ;;
+  *) echo "usage: lsp-idle stop | switched NEW [OLD] | left SESSION" >&2; exit 2 ;;
+esac
