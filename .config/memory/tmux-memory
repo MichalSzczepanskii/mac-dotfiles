@@ -1,0 +1,12 @@
+#!/bin/sh
+# tmux status segment (#81): swap used, coloured by macOS memory pressure (1 normal, 2 warn, 4 critical).
+PATH=$PATH:/usr/sbin # tmux may run this with a minimal PATH
+swap=$(sysctl -n vm.swapusage 2>/dev/null) || exit 0
+case $(sysctl -n kern.memorystatus_vm_pressure_level 2>/dev/null) in
+  1) fg='#9ece6a' ;;
+  2) fg='#e0af68' ;;
+  4) fg='#f7768e' ;;
+  *) fg='#7aa2f7' ;;
+esac
+# "total = 5120.00M  used = 4452.12M  free = ..." -> 4.3G
+echo "$swap" | awk -v fg="$fg" '{ v = $6; sub(/M$/, "", v); printf "#[fg=%s,bg=#16161e] swap %.1fG \n", fg, v / 1024 }'
