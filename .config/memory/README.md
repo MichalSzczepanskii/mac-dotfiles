@@ -9,14 +9,17 @@ Everything lives in this folder (live at `~/.config/memory` through the `~/.conf
 | Piece | File | Ticket |
 |---|---|---|
 | `ng serve` env exports | `ng-env.zsh` | #84 |
+| tmux status segment: swap, coloured by memory pressure | `tmux-memory`, `tmux.conf` | #81 |
 | `memtop` report (read-only) | `memtop` | #80 |
 
 ## Install
 
 1. `~/.zshrc`: add `source ~/.config/memory/ng-env.zsh`
-2. `ln -s ~/.config/memory/memtop ~/.local/bin/memtop`
+2. `~/.config/tmux/tmux.conf`: add `source-file ~/.config/memory/tmux.conf` after the `source-file ~/.config/tmux/tokyonight_night.tmux` line (it appends to the theme's `status-right`, so it must come after it), then `tmux source-file ~/.config/tmux/tmux.conf`
+3. `ln -s ~/.config/memory/memtop ~/.local/bin/memtop`
 
 ## Undo
 
 1. `~/.zshrc`: remove the `source ~/.config/memory/ng-env.zsh` line.
-2. `rm ~/.local/bin/memtop`
+2. `~/.config/tmux/tmux.conf`: remove the `source-file ~/.config/memory/tmux.conf` line, then `tmux source-file ~/.config/tmux/tmux.conf` (the theme resets `status-right`).
+3. `rm ~/.local/bin/memtop`
