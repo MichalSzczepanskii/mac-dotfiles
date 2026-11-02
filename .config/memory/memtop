@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# memtop: read-only report of what is eating memory (top apps, tmux sessions, swap, pressure).
+set -u
+
+usage() { echo "usage: memtop [--restart <app>]" >&2; }
+
+# usage: report [app] -- with an app, prints only that app's FOOTPRINT/CMPRS line
+# FOOTPRINT is top's MEM: physical footprint (what Activity Monitor calls Memory), not RSS
+report() {
+  local only="${1:-}"
+  {
+    top -l 1 -stats pid,mem,cmprs | sed 's/^/T /'
+    ps -axo pid=,ppid=,comm= | sed 's/^/P /'
+    [ -n "$only" ] || tmux list-panes -a -F '#{pane_pid} #{session_name}' 2>/dev/null | sed 's/^/S /'
+  } | awk -v only="$only" '
+    function mb(s,  u, n) {
+      sub(/[+-]$/, "", s); u = substr(s, length(s)); n = substr(s, 1, length(s) - 1) + 0
+      return u == "G" ? n * 1024 : u == "M" ? n : u == "K" ? n / 1024 : n / 1048576
+    }
+    # print the n biggest of m (mem) + c (compressed), biggest first; empties m
+    function printtop(title, m, c, n,  i, a, best) {
+      printf "%-28s %10s %8s\n", title, "FOOTPRINT", "CMPRS"
+      for (i = 1; i <= n; i++) {
+        best = ""; for (a in m) if (best == "" || m[a] + c[a] > m[best] + c[best]) best = a
+        if (best == "") break
+        printf "%-28s %9dM %7dM\n", substr(best, 1, 28), m[best] + .5, c[best] + .5; delete m[best]
+      }
+    }
+    function sumtree(root,  stack, n, p, k, c) {
+      n = 1; stack[1] = root; tm = 0; tc = 0
+      while (n > 0) {
+        p = stack[n--]; tm += mem[p]; tc += cmp[p]
+        k = split(kids[p], c, " "); while (k > 0) stack[++n] = c[k--]
+      }
+    }
+    $1 == "T" && $2 == "PID" { intop = 1; next }
+    $1 == "T" && intop && $2 ~ /^[0-9]+$/ { mem[$2] = mb($3); cmp[$2] = mb($4); next }
+    $1 == "P" {
+      pid = $2; kids[$3] = kids[$3] " " pid
+      path = $0; sub(/^P +[0-9]+ +[0-9]+ /, "", path)
+      if (match(path, /\/[^\/]+\.app\//)) app = substr(path, RSTART + 1, RLENGTH - 6)
+      else {
+        app = path; if (app !~ /^\//) { split(app, w, " "); app = w[1] }  # not a path: a rewritten title like "ng serve ..."
+        sub(/.*\//, "", app); sub(/^-/, "", app)
+      }
+      appof[pid] = app; next
+    }
+    $1 == "S" { s = $0; sub(/^S +[0-9]+ /, "", s); panes[s] = panes[s] " " $2; next }
+    END {
+      for (p in mem) if (p in appof) { am[appof[p]] += mem[p]; ac[appof[p]] += cmp[p] }
+      if (only != "") { printf "%-28s %9dM %7dM\n", substr(only, 1, 28), am[only] + .5, ac[only] + .5; exit }
+      printtop("APP", am, ac, 5)
+      for (s in panes) {
+        k = split(panes[s], pp, " ")
+        for (j = 1; j <= k; j++) { sumtree(pp[j]); sm[s] += tm; sc[s] += tc }
+      }
+      print ""; printtop("TMUX SESSION", sm, sc, 1000)
+    }'
+  [ -z "$only" ] || return 0
+  local used level
+  used=$(sysctl -n vm.swapusage | sed -E 's/.*used = ([0-9]+)(\.[0-9]+)?M.*/\1/')
+  case "$(sysctl -n kern.memorystatus_vm_pressure_level)" in
+    1) level=normal ;; 2) level=warn ;; 4) level=critical ;; *) level=unknown ;;
+  esac
+  printf '\nSwap used: %sM\nPressure: %s\n' "$used" "$level"
+}
+
+# pid of the app's main process (/<app>.app/Contents/MacOS/...), empty if not running
+app_pid() {
+  ps -axo pid=,ppid=,comm= | awk -v a="/$1.app/Contents/MacOS/" '{
+    p = $0; sub(/^ *[0-9]+ +[0-9]+ /, "", p)
+    if (index(p, a) && !index(substr(p, index(p, a) + length(a)), ".app/")) { print $1; exit }
+  }'
+}
+
+# usage: wait_for <app> gone|back -- polls once a second up to MEMTOP_TIMEOUT seconds
+wait_for() {
+  local i
+  for ((i = 0; i < ${MEMTOP_TIMEOUT:-30}; i++)); do
+    if [ "$2" = gone ]; then [ -z "$(app_pid "$1")" ] && return 0
+    else [ -n "$(app_pid "$1")" ] && return 0; fi
+    sleep 1
+  done
+  return 1
+}
+
+# Graceful quit + reopen: swap only shrinks when the owning process exits. Never kill.
+restart() {
+  local app="$1" ans
+  [ -n "$(app_pid "$app")" ] || { echo "memtop: $app is not running (use the name of its .app, e.g. \"Microsoft Teams\")" >&2; exit 1; }
+  echo "Before:"; report "$app"
+  read -r -p "Quit and reopen $app? [y/N] " ans || ans=
+  [ "$ans" = y ] || { echo "Nothing done."; return 0; }
+  osascript -e "quit app \"${app//\"/\\\"}\"" >/dev/null
+  wait_for "$app" gone || { echo "memtop: $app did not quit within ${MEMTOP_TIMEOUT:-30}s (unsaved work dialog?); not reopening" >&2; exit 1; }
+  open -a "$app"
+  wait_for "$app" back || { echo "memtop: $app did not come back within ${MEMTOP_TIMEOUT:-30}s" >&2; exit 1; }
+  echo "After:"; report "$app"
+}
+
+case "${1:-}" in
+  "") report ;;
+  --restart) [ $# -eq 2 ] || { usage; exit 2; }; restart "$2" ;;
+  *) usage; exit 2 ;;
+esac
