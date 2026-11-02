@@ -76,22 +76,40 @@ sock() { echo "$FAKE_TMP/nvim.tester/x$1/nvim.$1.0"; }
   nvim_in 100 101 102
   session new 1 1 300
   nvim_in 300 301 302
-  run "$SCRIPT" switched 'old one' new
+  run "$SCRIPT" switched new 'old one'
   [ "$status" -eq 0 ]
   grep -qx "tmux set-option -t =old one @lsp_left $NOW" "$CALLS"
   grep -q "^nvim --server $(sock 302) --remote-expr " "$CALLS"
   not_called "$(sock 102)"
 }
 
-@test "switched: first attach (no old session) sets nothing" {
-  run "$SCRIPT" switched '' new
+@test "switched: first attach (no old session) records no leave time" {
+  run "$SCRIPT" switched new
   [ "$status" -eq 0 ]
-  not_called set-option
+  not_called '@lsp_left [0-9]'
 }
 
-@test "tmux.conf hooks session switches to lsp-idle switched, shell-quoted" {
-  grep -qxF "set-hook -g client-session-changed[83] 'run-shell -b \"~/.config/memory/lsp-idle switched #{q:client_last_session} #{q:session_name}\"'" \
-    "$BATS_TEST_DIRNAME/../../.config/memory/tmux.conf"
+# hook <event> [format=value]...: run that tmux.conf hook's run-shell command the way tmux does
+# (#{q:x} expands to x shell-escaped, empty stays empty; sh -c), with lsp-idle replaced by an arg recorder
+hook() {
+  local ev=$1 cmd kv v; shift
+  cmd=$(sed -n "s/^set-hook -g $ev\[83\] 'run-shell -b \"\(.*\)\"'\$/\1/p" "$BATS_TEST_DIRNAME/../../.config/memory/tmux.conf")
+  [ -n "$cmd" ] || return 1
+  for kv; do v=${kv#*=}; [ -n "$v" ] && v=$(printf %q "$v"); cmd=${cmd//"#{q:${kv%%=*}}"/$v}; done
+  mkdir -p "$BATS_TEST_TMPDIR/home/.config/memory"
+  printf '#!/bin/sh\nprintf "[%%s]" "$@" >"$CALLS"\n' >"$BATS_TEST_TMPDIR/home/.config/memory/lsp-idle"
+  chmod +x "$BATS_TEST_TMPDIR/home/.config/memory/lsp-idle"
+  HOME="$BATS_TEST_TMPDIR/home" sh -c "$cmd"
+}
+
+@test "tmux.conf: session switch passes new then old session to lsp-idle switched" {
+  hook client-session-changed session_name=new client_last_session='old one'
+  [ "$(cat "$CALLS")" = '[switched][new][old one]' ]
+}
+
+@test "tmux.conf: first switch after attach (empty last session) still names the new session" {
+  hook client-session-changed session_name='new one' client_last_session=
+  [ "$(cat "$CALLS")" = '[switched][new one]' ]
 }
 
 @test "launchd agent runs lsp-idle stop every 5 minutes" {
