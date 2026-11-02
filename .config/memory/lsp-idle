@@ -54,6 +54,7 @@ stop() {
 
 switched() {
   [ -n "$2" ] && tmux set-option -t "=$2" @lsp_left "$(date +%s)"
+  tmux set-option -u -t "=$1" @lsp_left # in use again: an old leave time must not count
   tree $(panes | awk -F '\t' -v s="$1" '$4 == s { print $3 }') | remote "$resume_lua"
 }
 

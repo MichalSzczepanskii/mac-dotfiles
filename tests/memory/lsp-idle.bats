@@ -83,6 +83,12 @@ sock() { echo "$FAKE_TMP/nvim.tester/x$1/nvim.$1.0"; }
   not_called "$(sock 102)"
 }
 
+@test "switched: clears the leave time of the session returned to" {
+  run "$SCRIPT" switched 'new one' old
+  [ "$status" -eq 0 ]
+  grep -qx "tmux set-option -u -t =new one @lsp_left" "$CALLS"
+}
+
 @test "switched: first attach (no old session) records no leave time" {
   run "$SCRIPT" switched new
   [ "$status" -eq 0 ]
