@@ -1,6 +1,7 @@
 #!/bin/bash
 # Idle LSP stop (#83).
-#   lsp-idle stop        launchd, every 5 min: stop LSP in nvims of tmux sessions left over 30 min ago.
+#   lsp-idle stop        launchd, every 5 min: stop LSP in nvims of idle tmux sessions (detached: left 30+ min ago;
+#                        attached: no client input for 30+ min), except the session running ng serve.
 #   lsp-idle switched NEW [OLD] tmux client-session-changed hook (also fires on attach): record leaving OLD, bring LSP back in NEW.
 #   lsp-idle left SESSION       tmux client-detached hook: record leaving SESSION.
 # Talks to nvim only over its RPC socket (--remote-expr), never send-keys.
@@ -27,10 +28,11 @@ socks() {
 }
 
 # Lua run inside nvim; double quotes only, since each sits in a Vim single-quoted string.
-# Stop: skip a nvim in insert mode, pending input or a completion popup (next run retries); mark it for resume.
-stop_lua='local m = vim.api.nvim_get_mode() if m.mode ~= "n" or m.blocking or vim.fn.pumvisible() == 1 then return "busy" end local c = vim.lsp.get_clients() if #c == 0 then return "none" end vim.g.lsp_idle_stopped = 1 vim.lsp.stop_client(c) return "stopped"'
 # Resume: re-set each file buffer's filetype, which fires FileType and so LSP attach; only where stop ran.
-resume_lua='if vim.g.lsp_idle_stopped ~= 1 then return "skip" end vim.g.lsp_idle_stopped = nil for _, b in ipairs(vim.api.nvim_list_bufs()) do if vim.api.nvim_buf_is_loaded(b) and vim.bo[b].buftype == "" and vim.bo[b].filetype ~= "" then vim.api.nvim_buf_call(b, function() vim.bo.filetype = vim.bo.filetype end) end end return "resumed"'
+resume_lua='pcall(vim.api.nvim_del_augroup_by_name, "lsp_idle") if vim.g.lsp_idle_stopped ~= 1 then return "skip" end vim.g.lsp_idle_stopped = nil for _, b in ipairs(vim.api.nvim_list_bufs()) do if vim.api.nvim_buf_is_loaded(b) and vim.bo[b].buftype == "" and vim.bo[b].filetype ~= "" then vim.api.nvim_buf_call(b, function() vim.bo.filetype = vim.bo.filetype end) end end return "resumed"'
+# Stop: skip a nvim in insert mode, pending input or a completion popup (next run retries); mark it for resume.
+# Also resume on the first use of that nvim: an attached session stopped after a night's sleep gets no tmux switch event.
+stop_lua='local m = vim.api.nvim_get_mode() if m.mode ~= "n" or m.blocking or vim.fn.pumvisible() == 1 then return "busy" end local c = vim.lsp.get_clients() if #c == 0 then return "none" end vim.g.lsp_idle_stopped = 1 vim.lsp.stop_client(c) vim.api.nvim_create_autocmd({"FocusGained", "CursorMoved", "CursorMovedI", "InsertEnter"}, {group = vim.api.nvim_create_augroup("lsp_idle", {}), callback = function() '"$resume_lua"' end}) return "stopped"'
 
 # remote <lua>: run it in every nvim whose tree is on stdin
 remote() {
@@ -43,8 +45,9 @@ remote() {
 panes() { tmux list-panes -a -F '#{session_attached}	#{?@lsp_left,#{@lsp_left},#{session_activity}}	#{pane_pid}	#{session_name}'; }
 
 stop() {
-  panes |
-    awk -F '\t' -v now="$(date +%s)" '$1 == 0 && now - $2 > 1800 { panes[$4] = panes[$4] " " $3 }
+  { tmux list-clients -F '#{client_activity}	#{client_session}'; panes; } |
+    awk -F '\t' -v now="$(date +%s)" 'NF == 2 { if ($1 > input[$2]) input[$2] = $1; next }
+      now - ($1 > 0 ? input[$4] : $2) > 1800 { panes[$4] = panes[$4] " " $3 }
       END { for (n in panes) print panes[n] }' |
     while read -r panes; do
       t=$(tree $panes)

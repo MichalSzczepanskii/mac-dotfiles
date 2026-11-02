@@ -6,11 +6,11 @@ NOW=1000000
 
 setup() {
   export STUB_BIN="$BATS_TEST_TMPDIR/bin" CALLS="$BATS_TEST_TMPDIR/calls"
-  export PANES="$BATS_TEST_TMPDIR/panes" PS_OUT="$BATS_TEST_TMPDIR/ps" USER=tester
+  export PANES="$BATS_TEST_TMPDIR/panes" CLIENTS="$BATS_TEST_TMPDIR/clients" PS_OUT="$BATS_TEST_TMPDIR/ps" USER=tester
   export FAKE_TMP="$BATS_TEST_TMPDIR/T"
   mkdir -p "$STUB_BIN" "$FAKE_TMP/nvim.tester"
-  : >"$PANES"; : >"$PS_OUT"; : >"$CALLS"
-  stub tmux 'echo "tmux $*" >>"$CALLS"; [ "$1" = list-panes ] && cat "$PANES"; exit 0'
+  : >"$PANES"; : >"$CLIENTS"; : >"$PS_OUT"; : >"$CALLS"
+  stub tmux 'echo "tmux $*" >>"$CALLS"; [ "$1" = list-panes ] && cat "$PANES"; [ "$1" = list-clients ] && cat "$CLIENTS"; exit 0'
   stub ps 'cat "$PS_OUT"'
   stub nvim 'echo "nvim $*" >>"$CALLS"; echo stopped'
   stub date "echo $NOW"
@@ -22,6 +22,8 @@ stub() { printf '#!/bin/sh\n%s\n' "$2" >"$STUB_BIN/$1"; chmod +x "$STUB_BIN/$1";
 
 # session <name> <attached> <left (@lsp_left, else session_activity)> <pane_pid>
 session() { printf '%s\t%s\t%s\t%s\n' "$2" "$3" "$4" "$1" >>"$PANES"; }
+# client <session> <client_activity>: a tmux client attached to it
+client() { printf '%s\t%s\n' "$2" "$1" >>"$CLIENTS"; }
 # proc <pid> <ppid> <command...>
 proc() { local pid=$1 ppid=$2; shift 2; printf '%s %s %s\n' "$pid" "$ppid" "$*" >>"$PS_OUT"; }
 # an nvim (TUI pid + embedded server pid with an RPC socket) under a pane shell
@@ -49,9 +51,29 @@ sock() { echo "$FAKE_TMP/nvim.tester/x$1/nvim.$1.0"; }
   not_called '^nvim'
 }
 
-@test "stop: the attached session keeps LSP however long ago it was left" {
+@test "stop: attached session whose client had input in the last 30 min keeps LSP" {
   session proj 1 $((NOW - 9999)) 100
+  client proj $((NOW - 1800))
   nvim_in 100 101 102
+  run "$SCRIPT" stop
+  [ "$status" -eq 0 ]
+  not_called '^nvim'
+}
+
+@test "stop: attached session whose client had no input for 30+ min (a night's sleep) gets LSP stopped" {
+  session proj 1 $((NOW - 60)) 100
+  client proj $((NOW - 1801))
+  nvim_in 100 101 102
+  run "$SCRIPT" stop
+  [ "$status" -eq 0 ]
+  grep -q "^nvim --server $(sock 102) --remote-expr " "$CALLS"
+}
+
+@test "stop: attached session idle 30+ min but running ng serve keeps LSP" {
+  session main 1 $((NOW - 9999)) 100
+  client main $((NOW - 9999))
+  nvim_in 100 101 102
+  proc 201 100 node /Users/x/proj/node_modules/.bin/ng serve
   run "$SCRIPT" stop
   [ "$status" -eq 0 ]
   not_called '^nvim'
