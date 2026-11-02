@@ -73,6 +73,13 @@ T
   ! echo "$output" | grep -q '^Mail'
 }
 
+@test "memory column is labelled FOOTPRINT (top's physical footprint, not RSS)" {
+  run "$MEMTOP"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -Eq '^APP +FOOTPRINT +CMPRS$'
+  echo "$output" | grep -Eq '^TMUX SESSION +FOOTPRINT +CMPRS$'
+}
+
 @test "each tmux session sums its whole process tree" {
   run "$MEMTOP"
   [ "$status" -eq 0 ]

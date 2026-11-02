@@ -4,7 +4,8 @@ set -u
 
 usage() { echo "usage: memtop [--restart <app>]" >&2; }
 
-# usage: report [app] -- with an app, prints only that app's MEM/CMPRS line
+# usage: report [app] -- with an app, prints only that app's FOOTPRINT/CMPRS line
+# FOOTPRINT is top's MEM: physical footprint (what Activity Monitor calls Memory), not RSS
 report() {
   local only="${1:-}"
   {
@@ -18,11 +19,11 @@ report() {
     }
     # print the n biggest of m (mem) + c (compressed), biggest first; empties m
     function printtop(title, m, c, n,  i, a, best) {
-      printf "%-28s %8s %8s\n", title, "MEM", "CMPRS"
+      printf "%-28s %10s %8s\n", title, "FOOTPRINT", "CMPRS"
       for (i = 1; i <= n; i++) {
         best = ""; for (a in m) if (best == "" || m[a] + c[a] > m[best] + c[best]) best = a
         if (best == "") break
-        printf "%-28s %7dM %7dM\n", substr(best, 1, 28), m[best] + .5, c[best] + .5; delete m[best]
+        printf "%-28s %9dM %7dM\n", substr(best, 1, 28), m[best] + .5, c[best] + .5; delete m[best]
       }
     }
     function sumtree(root,  stack, n, p, k, c) {
@@ -47,7 +48,7 @@ report() {
     $1 == "S" { s = $0; sub(/^S +[0-9]+ /, "", s); panes[s] = panes[s] " " $2; next }
     END {
       for (p in mem) if (p in appof) { am[appof[p]] += mem[p]; ac[appof[p]] += cmp[p] }
-      if (only != "") { printf "%-28s %7dM %7dM\n", substr(only, 1, 28), am[only] + .5, ac[only] + .5; exit }
+      if (only != "") { printf "%-28s %9dM %7dM\n", substr(only, 1, 28), am[only] + .5, ac[only] + .5; exit }
       printtop("APP", am, ac, 5)
       for (s in panes) {
         k = split(panes[s], pp, " ")

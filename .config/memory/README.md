@@ -10,7 +10,7 @@ Everything lives in this folder (live at `~/.config/memory` through the `~/.conf
 |---|---|---|
 | `ng serve` env exports | `ng-env.zsh` | #84 |
 | tmux status segment: swap, coloured by memory pressure | `tmux-memory`, `tmux.conf` | #81 |
-| `memtop` report (read-only) | `memtop` | #80 |
+| `memtop` report (read-only). Its FOOTPRINT column is `top`'s MEM: physical footprint (Activity Monitor's Memory), not RSS; CMPRS is compressed memory | `memtop` | #80 |
 | `memtop --restart <app>`: asks, quits the app gracefully (AppleScript `quit app`, never `kill`), reopens it, prints its memory before and after. App name = its `.app` name, e.g. `"Microsoft Teams"` | `memtop` | #82 |
 | Idle LSP stop: LSP stops in idle tmux sessions, except the one running `ng serve`. Idle = left (switched away or detached) 30+ min ago, or attached with no input on its client for 30+ min, so after a night's sleep the first run stops all but the `ng serve` session. LSP comes back on switching to the session or on first use of that nvim | `lsp-idle`, `local.memory.lsp-idle.plist`, `tmux.conf` | #83 |
 
