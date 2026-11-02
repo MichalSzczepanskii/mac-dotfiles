@@ -11,6 +11,7 @@ Everything lives in this folder (live at `~/.config/memory` through the `~/.conf
 | `ng serve` env exports | `ng-env.zsh` | #84 |
 | tmux status segment: swap, coloured by memory pressure | `tmux-memory`, `tmux.conf` | #81 |
 | `memtop` report (read-only) | `memtop` | #80 |
+| `memtop --restart <app>`: asks, quits the app gracefully (AppleScript `quit app`, never `kill`), reopens it, prints its memory before and after. App name = its `.app` name, e.g. `"Microsoft Teams"` | `memtop` | #82 |
 
 ## Install
 
